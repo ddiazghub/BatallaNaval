@@ -1,5 +1,4 @@
 from __future__ import annotations
-from multiprocessing.sharedctypes import Value
 from random import randint
 from typing import List, Set
 from logica.tablero import Celda, ResultadoAtaque, Tablero

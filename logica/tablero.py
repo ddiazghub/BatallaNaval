@@ -1,7 +1,6 @@
 from enum import Enum
-import logica.jugadores as Jugadores
 from logica.barco import Barco
-from typing import Dict, Generator, List
+from typing import Generator, List
 
 """Enum que dice si un ataque falló, impactó a un barco ó destruyó a un barco"""
 class ResultadoAtaque(Enum):
