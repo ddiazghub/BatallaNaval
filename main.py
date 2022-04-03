@@ -2,11 +2,11 @@ from __future__ import annotations
 from typing import Dict, Generator
 from typing import List, Set, Tuple
 from random import randint, random
-
+import pygame
+import pygame_gui
 
 """Lee el tamaño del tablero de juego y lo inicializa"""
-size = int(input("Digite el tamaño del tablero de juego: "))
-
+size = 0
 
 """
 El tablero de juego, en cada juego se tienen 2 instancias de estos. Una para cada jugador.
@@ -18,14 +18,20 @@ hidden -- Booleano que si está activado no permite que se vean los barcos en el
 Por defecto para el jugador es Falso y para la computadora es Verdadero
 """
 class Tablero:
+    SPRITE_NORMAL = pygame.image.load("res/water.png")
+    SPRITE_BARCO = pygame.image.load("res/ship.png")
+    CELL_SIZE = 32
+
     _celdas: List[List[Barco]]
     _barcos: List[Barco]
+    _colores: Dict[Barco, pygame.Color]
     _size: int
 
     def __init__(self, size: int) -> None:
         self._size = size
         self._celdas = [[None for j in range(size)] for i in range(size)]
         self._barcos = []
+        self._colores = {}
 
     """Getters"""
     def getSize(self) -> int:
@@ -33,7 +39,10 @@ class Tablero:
 
     def getCeldas(self) -> List[List[Barco]]:
         return self._celdas
-        
+    
+    def getPixelSize(self) -> int:
+        return self._size * Tablero.CELL_SIZE
+
     """
     Ubica un barco en el tablero basado en los atributos de ese barco.
     Arroja distintos errores si el barco no se puede ubicar correctamente:
@@ -99,6 +108,35 @@ class Tablero:
 
         return True
 
+    def print(self) -> pygame.Surface:
+        size = len(self._celdas) * Tablero.CELL_SIZE
+        tablero = pygame.Surface((size, size))
+        tablero.fill(pygame.Color(51, 204, 51))
+        baseRect: pygame.Rect = Tablero.SPRITE_NORMAL.get_rect()
+
+        for i in range(self._size):
+            for j in range(self._size):
+                rect = baseRect.move(j * Tablero.CELL_SIZE, i * Tablero.CELL_SIZE)
+                barco = self._celdas[i][j]
+
+                if barco:
+                    color = None
+
+                    if barco in self._colores:
+                        color = self._colores[barco]
+                    else:
+                        color = pygame.Color(randint(0, 200), randint(0, 150), randint(0, 150))
+                        self._colores[barco] = color
+                    
+                    tablero.blit(Tablero.SPRITE_BARCO, rect)
+                    texto = pygame.font.SysFont(None, 24)
+                    img = texto.render(str(barco.getId()), True, color)
+                    tablero.blit(img, rect.move(5, 5))
+                else:
+                    tablero.blit(Tablero.SPRITE_NORMAL, rect)
+
+        return tablero
+                
     def __str__(self) -> str:
         return "\n".join([row for row in self.toString()])
 
@@ -172,23 +210,109 @@ class Barco:
 
 
 if __name__ == "__main__":
-    """Lee el número de los distintos barcos que tendrá el juego"""
-    numBarcos: Dict[str, int] = {
-        "Submarino": int(input("Ingrese el número de submarinos: ")),
-        "Destructor": int(input("Ingrese el número de destructores: ")),
-        "Crucero": int(input("Ingrese el número de cruceros: ")),
-        "Portaaviones": int(input("Ingrese el número de portaaviones: "))
-    }
+    barcosGenerados = ["Tamaño tablero", "Submarino", "Destructor", "Crucero", "Portaaviones"]
 
+    pygame.init()
+    displaySize = (700, 500)
+    display = pygame.display.set_mode(displaySize, pygame.RESIZABLE)
+    ejecutandose = True
+    fps = pygame.time.Clock()
+    manager = pygame_gui.UIManager(displaySize)
+    elemSize = pygame.Rect(0, 0, 200, 35)
 
-    """Genera los barcos para un jugador dependiendo del anterior diccionario"""
-    barcos = [Barco.generar(barco) for barco in numBarcos for i in range(numBarcos[barco])]
-    
-    for barco in barcos:
-        if barco.getSize() > size:
-            raise Exception(f"El barco {barco.getNombre()} {barco.getId()} tiene un tamaño mayor al del tablero, no se puede posicionar.")
+    campos = [
+        (
+            pygame_gui.elements.UITextBox(barcosGenerados[i], relative_rect=elemSize.move(50, 75 * i + 20), manager=manager),
+            pygame_gui.elements.UITextEntryLine(elemSize.move(50, 75 * i + 50), manager=manager)
+        ) for i in range(len(barcosGenerados))
+    ]
 
-        if not barco.ubicar():
-            raise Exception("No se pudo ubicar el barco en el tablero, probablemente no hay más espacio.")
+    for campo in campos:
+        campo[1].set_allowed_characters("numbers")
 
-    print(tablero)
+    confirmar = pygame_gui.elements.UIButton(relative_rect=elemSize.move(50, 410).inflate(0, 20), text="Confirmar", manager=manager)
+    texto = ""
+
+    while ejecutandose:
+        delta = fps.tick(30) / 1000
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                ejecutandose = False
+
+            if event.type == pygame.KEYDOWN:
+                for campo in campos:
+                    if campo[1].is_focused:
+                        if event.key == pygame.K_BACKSPACE:
+                            campo[1].set_text(campo[1].get_text()[:-1])
+                        else:
+                            campo[1].set_text(campo[1].get_text() + event.unicode)
+
+            if event.type == pygame_gui.UI_BUTTON_PRESSED:
+                try:
+                    if event.ui_element == confirmar:
+                        Barco.secuencia_id = 0
+
+                        size = campos[0][1].get_text()
+                        submarinos = campos[1][1].get_text()
+                        destructores = campos[2][1].get_text()
+                        cruceros = campos[3][1].get_text()
+                        portaaviones = campos[4][1].get_text()
+
+                        size = int(size) if size != "" else 0
+                        submarinos = int(submarinos) if submarinos != "" else 0
+                        destructores = int(destructores) if destructores != "" else 0
+                        cruceros = int(cruceros) if cruceros != "" else 0
+                        portaaviones = int(portaaviones) if portaaviones != "" else 0
+
+                        tablero = Tablero(size)
+                        pixelSize = tablero.getPixelSize()
+
+                        if pixelSize > 400:
+                            displaySize = (300 + pixelSize, 50 + pixelSize)
+                        else:
+                            displaySize = (700, 500)
+
+                        display = pygame.display.set_mode(displaySize, pygame.RESIZABLE)
+
+                        """Lee el número de los distintos barcos que tendrá el juego"""
+                        numBarcos: Dict[str, int] = {
+                            "Submarino": int(submarinos),
+                            "Destructor": int(destructores),
+                            "Crucero": int(cruceros),
+                            "Portaaviones": int(portaaviones)
+                        }
+
+                        """Genera los barcos para un jugador dependiendo del anterior diccionario"""
+                        barcosGenerados = [Barco.generar(barco) for barco in numBarcos for i in range(numBarcos[barco])]
+                        
+                        for barco in barcosGenerados:
+                            if barco.getSize() > size:
+                                raise ValueError(f"El barco {barco.getNombre()} {barco.getId()} tiene un tamaño mayor al del tablero, no se puede posicionar.")
+
+                            if not barco.ubicar():
+                                raise ValueError(f"No se pudo ubicar el barco {barco.getNombre()} {barco.getId()} en el tablero. No hay espacio disponible")
+                except ValueError as e:
+                    texto = str(e)
+                except:
+                    texto = "No se pudieron ubicar los barcos en el tablero"
+                
+        try:
+            manager.process_events(event)
+        except:
+            pass
+
+        manager.update(delta)
+
+        imagenTablero = tablero.print()
+        display.fill(pygame.Color(200, 200, 200))
+        display.blit(imagenTablero, imagenTablero.get_rect().move(270, 20))
+
+        font = pygame.font.SysFont(None, 24)
+        img = font.render(texto, True, pygame.Color(255, 0, 0))
+        display.blit(img, (20, 20))
+        manager.draw_ui(display)
+        pygame.display.flip()
+        pygame.display.update()
+
+    pygame.quit()
