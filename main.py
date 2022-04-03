@@ -305,9 +305,13 @@ if __name__ == "__main__":
                         portaaviones = campos[4][1].get_text()
 
                         """
-                        Si el usuario no escribión nada en un campo, se toma como 0 por defecto
+                        Si el usuario no escribión nada en un campo, se toma como 0 por defecto. En el caso del tablero se arroja un error
                         """
-                        size = int(size) if size != "" else 0
+                        size = int(size) if size != "" else None
+                        
+                        if not size:
+                            raise ValueError("El tamaño del tablero no puede estar indefinido o ser 0")
+                        
                         submarinos = int(submarinos) if submarinos != "" else 0
                         destructores = int(destructores) if destructores != "" else 0
                         cruceros = int(cruceros) if cruceros != "" else 0
@@ -334,9 +338,12 @@ if __name__ == "__main__":
                             "Portaaviones": int(portaaviones)
                         }
 
-                        """Genera los barcos dependiendo del anterior diccionario"""
+                        """Genera los barcos dependiendo del anterior diccionario, si el usuario no añadió ningún barco arroja un error"""
                         barcos = [Barco.generar(barco) for barco in numBarcos for i in range(numBarcos[barco])]
                         
+                        if len(barcos) == 0:
+                            raise ValueError("No se han añadido barcos al tablero, digite el número barcos de cada tipo.")
+
                         """
                         Ubica los barcos generados y arroja errores si no se pueden ubicar
                         """
@@ -353,7 +360,7 @@ if __name__ == "__main__":
                 except ValueError as e:
                     texto = str(e)
                 except:
-                    texto = "No se pudieron ubicar los barcos en el tablero"
+                    texto = "Ha ocurrido un error"
     
         try:
             manager.process_events(event)
